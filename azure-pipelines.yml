@@ -1,0 +1,63 @@
+trigger:
+- main
+
+resources:
+- repo: self
+
+variables:
+  dockerfilePath: '$(Build.SourcesDirectory)/Dockerfile'
+  pythonVersion: '3.9'
+  tag: '$(Build.BuildId)'
+  projectRoot: $(System.DefaultWorkingDirectory)
+  vmImageName: 'ubuntu-latest'
+
+stages:
+- stage: Build
+  displayName: Build
+  jobs:
+  - job: BuildImage
+    displayName: Build Image
+    pool:
+      vmImage: $(vmImageName)
+    steps:
+    - task: Powershell@2
+      displayName: Download Model
+      inputs: 
+        targetType: filePath
+        filePath: scripts/downloadModel.ps1
+        pwsh: true
+      env:
+        DATABRICKS_TOKEN: $(DATABRICKS_TOKEN)
+        DATABRICKS_HOST: $(DATABRICKS_HOST)
+        MODEL_NAME: $(MODEL_NAME)
+        MODEL_VERSION: $(MODEL_VERSION)
+    - task: Docker@2
+      displayName: Build and push an image to container registry
+      inputs:
+        command: buildAndPush
+        repository: $(IMAGE_REPOSITORY)
+        dockerfile: $(dockerfilePath)
+        containerRegistry: $(REGISTRY_SERVICE_CONNECTION)
+        tags: |
+          $(tag)
+- stage: Update
+  displayName: Update Container Apps
+  jobs:
+  - job: Update
+    displayName: Update Container Apps with New Image
+    pool:
+      vmImage: $(vmImageName)
+    steps:
+    - task: AzureCLI@2
+      displayName: 'Update Container Apps'
+      inputs:
+        azureSubscription: $(AZURE_SERVICE_CONNECTION)
+        scriptType: pscore
+        scriptLocation: inlineScript
+        inlineScript: |
+          az config set extension.use_dynamic_install=yes_without_prompt
+          az containerapp update -n $(CONTAINER_APP) -g $(RESOURCE_GROUP) --image "$(CONTAINER_REGISTRY)/$(IMAGE_REPOSITORY):$(Build.BuildId)"
+
+        
+
+
