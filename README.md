@@ -1,5 +1,5 @@
 # End-to-End Example for Deploying ML models
-As simple as possible to end-to-end flow.
+Intended as simple process for demonstrating end-to-end flow.
 
 A production solution would include e.g. security mechanisms on multiple levels
 
